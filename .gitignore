@@ -48,3 +48,8 @@ tools/osx/simulator.xcodeproj/xcuserdata/davehodder.xcuserdatad/xcschemes/xcsche
 
 *.xcbkptlist
 tools/osx/simulator.xcodeproj/xcuserdata
+
+cmake-build-*
+CMakeLists.txt
+.idea
+.DS_Store
