@@ -54,6 +54,9 @@ void draw(u8 even) {
 
 void app_surface_event(u8 type, u8 index, u8 value)
 {
+    u8 row = index / 10;
+    u8 col = index % 10;
+
     switch (type)
     {
         case  TYPEPAD:
@@ -62,7 +65,7 @@ void app_surface_event(u8 type, u8 index, u8 value)
             BUTTON(delete, 50);
             BUTTON(device, 97);
 
-            u8 pad = (index % 10) != 0 && index > 10 && index < 90;
+            u8 pad = col != 0 && row > 1 && row < 9;
 
             if (shift && delete && device) {
                 memset(&data, 0, sizeof(data));
@@ -77,7 +80,7 @@ void app_surface_event(u8 type, u8 index, u8 value)
 
             if (!shift && pad && value)
             {
-                data.activeInRow[8 - index / 10] = index % 10;
+                data.activeInRow[8 - row] = col == 9 ? 0 : col;
                 hal_send_midi(DINMIDI, NOTEON, index, value);
                 hal_send_midi(DINMIDI, NOTEOFF, index, value);
                 hal_send_midi(USBMIDI, NOTEON, index, value);
