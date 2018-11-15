@@ -3,6 +3,7 @@
 #include "app.h"
 
 #define BUTTON_COUNT 100
+#define ROW_COUNT 10
 
 typedef struct color
 {
@@ -12,10 +13,11 @@ typedef struct color
 typedef struct
 {
   u8 buttons[BUTTON_COUNT];
-  u8 activeInRow[4];
+  u8 rowHasActiveCount[ROW_COUNT];
 } DATA;
 
 DATA data;
+u8 activeInRow[ROW_COUNT];
 
 #define COLOR_COUNT 10
 color colors[COLOR_COUNT] = {
@@ -39,6 +41,7 @@ u8 inColorSelect = 0;
 u8 shift = 0;
 u8 delete = 0;
 u8 device = 0;
+u8 sends = 0;
 //______________________________________________________________________________
 
 void draw(u8 even)
@@ -53,21 +56,29 @@ void draw(u8 even)
     {
       hal_plot_led(TYPEPAD, 10 + color, colors[color].r, colors[color].g, colors[color].b);
     }
+
+    return;
   }
-  else
+
+  for (int i = 0; i < 10; ++i)
   {
-    for (int i = 0; i < 10; ++i)
+    for (int j = 0; j < 10; ++j)
     {
-      for (int j = 0; j < 10; ++j)
-      {
-        u8 index = j * 10 + i;
-        color col = colors[data.buttons[index]];
-        u8 active = data.activeInRow[8 - index / 10] == index % 10;
-        if (active && even)
-          hal_plot_led(TYPEPAD, index, col.r / 4, col.g / 4, col.b / 4);
-        else
-          hal_plot_led(TYPEPAD, index, col.r, col.g, col.b);
-      }
+      u8 index = j * 10 + i;
+      color col = colors[data.buttons[index]];
+      u8 active = activeInRow[index / 10] == index % 10;
+      if (data.rowHasActiveCount[j] && active && even)
+        hal_plot_led(TYPEPAD, index, col.r / 4, col.g / 4, col.b / 4);
+      else
+        hal_plot_led(TYPEPAD, index, col.r, col.g, col.b);
+    }
+  }
+
+  if (inSetup)
+  {
+    for (int i = 0; i < ROW_COUNT; ++i) {
+      if (data.rowHasActiveCount[i])
+        hal_plot_led(TYPEPAD, 10 * i, 63, 63, 63);
     }
   }
 }
@@ -84,27 +95,35 @@ void app_surface_event(u8 type, u8 index, u8 value)
       BUTTON(shift, 80);
       BUTTON(delete, 50);
       BUTTON(device, 97);
+      BUTTON(sends, 7);
 
       u8 pad = col != 0 && row > 0 && row < 9;
 
       if (inSetup)
       {
-        if (delete && device)
+        if (delete && device && value)
         {
           memset(&data, 0, sizeof(data));
           break;
         }
 
+        if (sends && value) {
+          if (index % 10 == 0) {
+            data.rowHasActiveCount[index / 10] = !data.rowHasActiveCount[index / 10];
+            if (!data.rowHasActiveCount[index / 10])
+              activeInRow[index / 10] = 0;
+          }
+        }
+
         if (!inColorSelect && pad && shift && value)
         {
-//                data.buttons[index] = (data.buttons[index] + 1) % COLOR_COUNT;
           inColorSelect = index;
           break;
         }
 
         if (inColorSelect && value)
         {
-          if (index >= 10 && index <= 19)
+          if (index >= 10 && index < 10 + COLOR_COUNT)
           {
             data.buttons[inColorSelect] = index - 10;
             inColorSelect = 0;
@@ -118,12 +137,12 @@ void app_surface_event(u8 type, u8 index, u8 value)
       }
 
       // NOT SETUP
-      if (!shift & pad)
+      if (!shift && pad)
       {
         if (value)
         {
-          if (row > 4)
-            data.activeInRow[8 - row] = col == 9 ? 0 : col;
+          if (data.rowHasActiveCount[row])
+            activeInRow[row] = col == 9 ? 0 : col;
           hal_send_midi(DINMIDI, NOTEON, index, value);
           hal_send_midi(USBMIDI, NOTEON, index, value);
         }
@@ -210,5 +229,4 @@ void app_init(const u16* adc_raw)
 {
   // example - load button states from flash
   hal_read_flash(0, &data, sizeof(data));
-  memset(data.activeInRow, 0, sizeof(data.activeInRow));
 }
