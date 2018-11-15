@@ -42,7 +42,7 @@ void draw(u8 even) {
         {
             u8 index = j * 10 + i;
             color col = colors[data.buttons[index]];
-            u8 active = data.activeInRow[8 - index / 10] == index % 10;
+            u8 active = j > 4 ? (data.activeInRow[8 - index / 10] == index % 10) : 0;
             if (active && even)
                 hal_plot_led(TYPEPAD, index, col.r / 4, col.g / 4, col.b / 4);
             else
@@ -65,7 +65,7 @@ void app_surface_event(u8 type, u8 index, u8 value)
             BUTTON(delete, 50);
             BUTTON(device, 97);
 
-            u8 pad = col != 0 && row > 1 && row < 9;
+            u8 pad = col != 0 && row > 0 && row < 9;
 
             if (shift && delete && device) {
                 memset(&data, 0, sizeof(data));
@@ -78,17 +78,22 @@ void app_surface_event(u8 type, u8 index, u8 value)
                 data.buttons[index] = (data.buttons[index] + 1) % COLOR_COUNT;
             }
 
-            if (!shift && pad && value)
-            {
-                data.activeInRow[8 - row] = col == 9 ? 0 : col;
+            if (!shift & pad) {
+              if (value) {
+                if (row > 4)
+                  data.activeInRow[8 - row] = col == 9 ? 0 : col;
                 hal_send_midi(DINMIDI, NOTEON, index, value);
-                hal_send_midi(DINMIDI, NOTEOFF, index, value);
                 hal_send_midi(USBMIDI, NOTEON, index, value);
+              }
+              else
+              {
+                hal_send_midi(DINMIDI, NOTEOFF, index, value);
                 hal_send_midi(USBMIDI, NOTEOFF, index, value);
-            }  
+              }
+            }
         }
         break;
-            
+
         case TYPESETUP:
         {
             if (value)
@@ -135,10 +140,10 @@ void app_cable_event(u8 type, u8 value)
 void app_timer_event()
 {
 #define DRAW_MS 240
-    
+
     static u8 drawMs = DRAW_MS;
     static u8 drawEven = 1;
-    
+
     if (++drawMs >= DRAW_MS)
     {
         drawMs = 0;
